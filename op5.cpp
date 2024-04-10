@@ -5,7 +5,7 @@
 
 int main() {
     // Video dimensions
-    int width = 400;
+    int width = 1024;
     int height = 400;
     int numFrames = 100; // Number of frames in the video
     int fps = 15; // Frames per second
