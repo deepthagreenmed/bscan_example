@@ -26,6 +26,9 @@ int main() {
                 if (((x + y + frameIndex) == 0) || ((x + y + frameIndex) == 117) || ((x + y + frameIndex) == 255) || ((x + y + frameIndex) == 148) || ((x + y + frameIndex) >= 417 && ((x + y + frameIndex) <= 440))) {
                     frame.at<uchar>(y, x) = 255; // Set pixel to white
                 }
+                else {
+                	frame.at<uchar>(y, x) = 0; // Set pixel to white
+                }
             }
         }
 
