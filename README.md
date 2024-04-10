@@ -1,1 +1,1 @@
-g++ op4.cpp -o op4 `pkg-config --cflags --libs opencv4` -lGL -lGLU -lglut
+g++ op5.cpp -o op5 `pkg-config --cflags --libs opencv4` -lGL -lGLU -lglut
