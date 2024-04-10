@@ -27,7 +27,7 @@ int main() {
                     frame.at<uchar>(y, x) = 255; // Set pixel to white
                 }
                 else {
-                	frame.at<uchar>(y, x) = 0; // Set pixel to white
+                	frame.at<uchar>(y, x) = 0; // Set pixel to black
                 }
             }
         }
