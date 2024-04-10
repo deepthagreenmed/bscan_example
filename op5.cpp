@@ -12,7 +12,7 @@ int main() {
 
     // Video writer object
     cv::VideoWriter videoWriter;
-    videoWriter.open("binary_video.avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), fps, cv::Size(width, height));
+    videoWriter.open("bscan_video.avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), fps, cv::Size(width, height));
 
     // Generate frames and write to video
     for (int frameIndex = 0; frameIndex < numFrames; ++frameIndex) {
