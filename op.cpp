@@ -19,29 +19,35 @@ void generateBScan(cv::Mat& frame, int timeStep) {
         // Calculate intensity value based on depth
         double intensity = maxIntensity * (1 - static_cast<double>(y) / maxDepth);
 
-        // Set intensity value to zero
-        for (int x = 0; x < width; ++x) {
-            frame.at<cv::Vec3b>(y, x) = cv::Vec3b(0, 0, 0);
-        }
-
         // Set specific intensity values at certain points based on x-coordinate
         if (y == height / 2) {
             for (int x = 0; x < width; ++x) {
                 if (x == 0 || x == 117 || x == 148 || (x >= 417 && x <= 440)) {
-                    frame.at<cv::Vec3b>(y, x) = cv::Vec3b(255, 255, 255); // Set to white
+                    // Convert polar coordinates to Cartesian coordinates
+                    double radius = y;
+                    double angle = static_cast<double>(x) / width * 2 * CV_PI;
+                    int cartesianX = static_cast<int>(radius * cos(angle) + width / 2);
+                    int cartesianY = static_cast<int>(radius * sin(angle) + height / 2);
+
+                    // Ensure Cartesian coordinates are within bounds
+                    cartesianX = std::max(0, std::min(cartesianX, width - 1));
+                    cartesianY = std::max(0, std::min(cartesianY, height - 1));
+
+                    // Set intensity value to white at Cartesian coordinates
+                    frame.at<cv::Vec3b>(cartesianY, cartesianX) = cv::Vec3b(255, 255, 255);
                 }
             }
         }
     }
 
     // Add a timestamp to the frame
-    cv::putText(frame, "Time Step: " + std::to_string(timeStep), cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255), 2);
+    //cv::putText(frame, "Time Step: " + std::to_string(timeStep), cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255), 2);
 }
 
 int main() {
     // Video dimensions
-    int width = 640;
-    int height = 480;
+    int width = 1024;
+    int height = 400;
     int numFrames = 100; // Number of frames in the video
     int fps = 15; // Frames per second
 
