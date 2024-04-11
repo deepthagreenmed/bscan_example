@@ -5,46 +5,43 @@
 #include <cmath>
 
 // Function to generate B-scan data for a single frame with set values at certain points
-void generateBScan(cv::Mat& frame) {
+void generateBScan(cv::Mat& frame, int timeStep) {
     // Dimensions of the frame
     int width = frame.cols;
     int height = frame.rows;
 
     // Define parameters for the synthetic B-scan
-    float centerAngle = M_PI / 2; // Center angle (in radians)
-    float maxRadius = std::min(width, height) / 2; // Max radius
-    float angleIncrement = M_PI / width; // Angle increment
-    float radiusIncrement = maxRadius / height; // Radius increment
+    double maxDepth = height; // Max depth (along the scan line)
+    double maxIntensity = 255.0; // Max intensity
 
-    // Generate B-scan data for this frame without the moving object
+    // Generate B-scan data for this frame
     for (int y = 0; y < height; ++y) {
+        // Calculate intensity value based on depth
+        double intensity = maxIntensity * (1 - static_cast<double>(y) / maxDepth);
+
+        // Set intensity value to zero
         for (int x = 0; x < width; ++x) {
-            // Calculate polar coordinates
-            float angle = centerAngle + (x - width / 2) * angleIncrement;
-            float radius = y * radiusIncrement;
+            frame.at<cv::Vec3b>(y, x) = cv::Vec3b(0, 0, 0);
+        }
 
-            // Convert polar coordinates to Cartesian coordinates
-            int cartX = width / 2 + radius * cos(angle);
-            int cartY = height - (height / 2 + radius * sin(angle));
-
-            // Set intensity value to zero
-            // Check if the current point is within the specified region
-            if (x == 0 || x == 117 || x == 148 || (x >= 417 && x <= 440)) {
-                // Set intensity value to maximum
-                frame.at<cv::Vec3b>(y, x) = cv::Vec3b(255, 255, 255);
-            } else {
-                // Set intensity value to zero
-                frame.at<cv::Vec3b>(y, x) = cv::Vec3b(0, 0, 0);
-            //frame.at<cv::Vec3b>(y, x) = cv::Vec3b(0, 0, 0);
+        // Set specific intensity values at certain points based on x-coordinate
+        if (y == height / 2) {
+            for (int x = 0; x < width; ++x) {
+                if (x == 0 || x == 117 || x == 148 || (x >= 417 && x <= 440)) {
+                    frame.at<cv::Vec3b>(y, x) = cv::Vec3b(255, 255, 255); // Set to white
+                }
             }
         }
     }
+
+    // Add a timestamp to the frame
+    cv::putText(frame, "Time Step: " + std::to_string(timeStep), cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255), 2);
 }
 
 int main() {
     // Video dimensions
-    int width = 1024;
-    int height = 400;
+    int width = 640;
+    int height = 480;
     int numFrames = 100; // Number of frames in the video
     int fps = 15; // Frames per second
 
@@ -57,8 +54,8 @@ int main() {
         // Create a frame to store the B-scan data
         cv::Mat frame(height, width, CV_8UC3, cv::Scalar(0, 0, 0));
 
-        // Generate B-scan data for this frame without the moving object
-        generateBScan(frame);
+        // Generate B-scan data for this frame
+        generateBScan(frame, frameIndex);
 
         // Write the frame to the video
         videoWriter.write(frame);
