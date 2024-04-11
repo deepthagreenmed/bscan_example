@@ -21,25 +21,25 @@ for (int x = 0; x < width; ++x) {
     // Calculate intensity value based on depth
     double intensity = maxIntensity * (1 - static_cast<double>(x) / maxDepth);
 	double radius=x;
-    // Set specific intensity values at certain points along the line
-    for (int y = 0; y < height; ++y) {
-        // Convert polar coordinates to Cartesian coordinates
-        //double radius = x;
-        if(x==0 || x==117 || x==148 || (x>=417 && x<=440))
-        {
-        	
-		double angle = static_cast<double>(y) / width * 2 * CV_PI;
-		int cartesianX = static_cast<int>(radius * cos(angle));
-		int cartesianY = static_cast<int>(radius * sin(angle));
+	if(x==0 || x==117 || x==148 || (x>=417 && x<=440))
+	{	
+	    // Set specific intensity values at certain points along the line
+	    for (int y = 0; y < height; ++y) {
+		// Convert polar coordinates to Cartesian coordinates
+		//double radius = x;	
+			
+			double angle = static_cast<double>(y) / width * 2 * CV_PI;
+			int cartesianX = static_cast<int>(radius * cos(angle));
+			int cartesianY = static_cast<int>(radius * sin(angle));
 
-		// Ensure Cartesian coordinates are within bounds
-		cartesianX = std::max(0, std::min(cartesianX, width - 1));
-		cartesianY = std::max(0, std::min(cartesianY, height - 1));
+			// Ensure Cartesian coordinates are within bounds
+			cartesianX = std::max(0, std::min(cartesianX, width - 1));
+			cartesianY = std::max(0, std::min(cartesianY, height - 1));
 
-		// Set intensity value at current Cartesian coordinates
-		frame.at<cv::Vec3b>(y, cartesianX) = cv::Vec3b(255, 255, 255);
-	    }
-	 }
+			// Set intensity value at current Cartesian coordinates
+			frame.at<cv::Vec3b>(y, cartesianX) = cv::Vec3b(255, 255, 255);
+		 }
+	}
 }
 
 
