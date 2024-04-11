@@ -10,35 +10,38 @@ void generateBScan(cv::Mat& frame, int timeStep) {
     int width = frame.cols;
     int height = frame.rows;
 
+	//std::cout << frame.cols << frame.rows;
     // Define parameters for the synthetic B-scan
     double maxDepth = height; // Max depth (along the scan line)
     double maxIntensity = 255.0; // Max intensity
 
     // Generate B-scan data for this frame
+   // Generate B-scan data for this frame
+for (int x = 0; x < width; ++x) {
+    // Calculate intensity value based on depth
+    double intensity = maxIntensity * (1 - static_cast<double>(x) / maxDepth);
+	double radius=x;
+    // Set specific intensity values at certain points along the line
     for (int y = 0; y < height; ++y) {
-        // Calculate intensity value based on depth
-        double intensity = maxIntensity * (1 - static_cast<double>(y) / maxDepth);
+        // Convert polar coordinates to Cartesian coordinates
+        //double radius = x;
+        if(x==0 || x==117 || x==148 || (x>=417 && x<=440))
+        {
+        	
+		double angle = static_cast<double>(y) / width * 2 * CV_PI;
+		int cartesianX = static_cast<int>(radius * cos(angle));
+		int cartesianY = static_cast<int>(radius * sin(angle));
 
-        // Set specific intensity values at certain points based on x-coordinate
-        if (y == height / 2) {
-            for (int x = 0; x < width; ++x) {
-                if (x == 0 || x == 117 || x == 148 || (x >= 417 && x <= 440)) {
-                    // Convert polar coordinates to Cartesian coordinates
-                    double radius = y;
-                    double angle = static_cast<double>(x) / width * 2 * CV_PI;
-                    int cartesianX = static_cast<int>(radius * cos(angle) + width / 2);
-                    int cartesianY = static_cast<int>(radius * sin(angle) + height / 2);
+		// Ensure Cartesian coordinates are within bounds
+		cartesianX = std::max(0, std::min(cartesianX, width - 1));
+		cartesianY = std::max(0, std::min(cartesianY, height - 1));
 
-                    // Ensure Cartesian coordinates are within bounds
-                    cartesianX = std::max(0, std::min(cartesianX, width - 1));
-                    cartesianY = std::max(0, std::min(cartesianY, height - 1));
+		// Set intensity value at current Cartesian coordinates
+		frame.at<cv::Vec3b>(y, cartesianX) = cv::Vec3b(255, 255, 255);
+	    }
+	 }
+}
 
-                    // Set intensity value to white at Cartesian coordinates
-                    frame.at<cv::Vec3b>(cartesianY, cartesianX) = cv::Vec3b(255, 255, 255);
-                }
-            }
-        }
-    }
 
     // Add a timestamp to the frame
     //cv::putText(frame, "Time Step: " + std::to_string(timeStep), cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255), 2);
