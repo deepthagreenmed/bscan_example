@@ -15,7 +15,6 @@ void generateBScan(cv::Mat& frame, int timeStep) {
     double maxDepth = height; // Max depth (along the scan line)
     double maxIntensity = 255.0; // Max intensity
 
-    // Generate B-scan data for this frame
    // Generate B-scan data for this frame
 for (int x = 0; x < width; ++x) {
     // Calculate intensity value based on depth
