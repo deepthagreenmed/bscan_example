@@ -17,26 +17,36 @@ void generateBScan(cv::Mat& frame, int timeStep) {
     // Generate B-scan data for this frame
     for (int x = 0; x < width; ++x) {
         // Calculate intensity value based on depth
-        double intensity = maxIntensity * (1 - static_cast<double>(x) / maxDepth);
+        double intensity = maxIntensity;
         double radius = x;
-        if (x == 0 || x == 117 || x == 148 || (x >= 417 && x <= 440)) {
-            // Set specific intensity values at certain points along the line
+        if (x == 117 || x == 148 || (x >= 417 && x <= 440)) {
+            // Draw lines at each angle
             for (int y = 0; y < height; ++y) {
-                // Convert polar coordinates to Cartesian coordinates
-                double angle = static_cast<double>(y) / width * 2 * CV_PI;
+                double angle = static_cast<double>(y) / height * 2 * CV_PI;
                 int cartesianX = static_cast<int>(radius * cos(angle));
                 int cartesianY = static_cast<int>(radius * sin(angle));
-
                 // Ensure Cartesian coordinates are within bounds
                 cartesianX = std::max(0, std::min(cartesianX, width - 1));
                 cartesianY = std::max(0, std::min(cartesianY, height - 1));
-
+                // Draw a line from the center to the current Cartesian coordinates
+                cv::line(frame, cv::Point(width / 2, height / 2), cv::Point(cartesianX, cartesianY), cv::Scalar(0, 255, 0), 1);
+            }
+            // Set specific intensity values at certain points along the line
+            for (int y = 0; y < height; ++y) {
+                double angle = static_cast<double>(y) / height * 2 * CV_PI;
+                int cartesianX = static_cast<int>(radius * cos(angle));
+                int cartesianY = static_cast<int>(radius * sin(angle));
+                // Ensure Cartesian coordinates are within bounds
+                cartesianX = std::max(0, std::min(cartesianX, width - 1));
+                cartesianY = std::max(0, std::min(cartesianY, height - 1));
                 // Set intensity value at current Cartesian coordinates
                 frame.at<cv::Vec3b>(height - 1 - cartesianY, cartesianX) = cv::Vec3b(255, 255, 255);
             }
         }
     }
 }
+
+
 
 int main() {
     // Video dimensions
@@ -61,16 +71,12 @@ int main() {
         cv::Mat frameCopy = frame.clone();
 
         // Flip the original frame horizontally
-       // cv::flip(frameCopy, frameCopy, 1);
         cv::flip(frameCopy, frame, 0);
-      //  cv::flip(frame, frame, 1);
 
         // Concatenate the original and flipped frames vertically
         cv::Mat combinedFrame;
         cv::vconcat(frameCopy, frame, combinedFrame);
         
-        //cv::flip(combinedFrame, combinedFrame, 1);
-
         // Write the frame to the video
         videoWriter.write(combinedFrame);
 
