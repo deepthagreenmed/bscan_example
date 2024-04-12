@@ -10,52 +10,41 @@ void generateBScan(cv::Mat& frame, int timeStep) {
     int width = frame.cols;
     int height = frame.rows;
 
+	//std::cout << frame.cols << frame.rows;
     // Define parameters for the synthetic B-scan
     double maxDepth = height; // Max depth (along the scan line)
     double maxIntensity = 255.0; // Max intensity
 
-    // Generate B-scan data for this frame
-    for (int x = 0; x < width; ++x) {
-        // Calculate intensity value based on depth
-        double intensity = maxIntensity * (1 - static_cast<double>(x) / maxDepth);
-        double radius = x;
+   // Generate B-scan data for this frame
+for (int x = 0; x < width; ++x) {
+    // Calculate intensity value based on depth
+    double intensity = maxIntensity * (1 - static_cast<double>(x) / maxDepth);
+	double radius=x;
+	if(x==0 || x==117 || x==148 || (x>=417 && x<=440))
+	{	
+	    // Set specific intensity values at certain points along the line
+	    for (int y = 0; y < height; ++y) {
+		// Convert polar coordinates to Cartesian coordinates
+		//double radius = x;	
+			
+			double angle = static_cast<double>(y) / width * 2 * CV_PI;
+			int cartesianX = static_cast<int>(radius * cos(angle));
+			int cartesianY = static_cast<int>(radius * sin(angle));
 
-        if (x == 0 || x == 117 || x == 148 || (x >= 417 && x <= 440)) {
-            // Draw lines to represent the sides of an angle
-            double angle = static_cast<double>(x) / width * CV_PI; // Angle in radians
+			// Ensure Cartesian coordinates are within bounds
+			cartesianX = std::max(0, std::min(cartesianX, width - 1));
+			cartesianY = std::max(0, std::min(cartesianY, height - 1));
 
-            // Calculate the endpoints of the lines
-            int startX = static_cast<int>(width / 2.0);
-            int startY = height;
-            int endX1 = startX + static_cast<int>(radius * cos(angle));
-            int endY1 = startY - static_cast<int>(radius * sin(angle));
-            int endX2 = startX + static_cast<int>(radius * cos(-angle));
-            int endY2 = startY - static_cast<int>(radius * sin(-angle));
-
-            // Draw lines on the frame
-            cv::line(frame, cv::Point(startX, startY), cv::Point(endX1, endY1), cv::Scalar(255, 255, 255), 1);
-            cv::line(frame, cv::Point(startX, startY), cv::Point(endX2, endY2), cv::Scalar(255, 255, 255), 1);
-        }
-        else {
-            // Draw black lines at other points
-            double angle = static_cast<double>(x) / width * CV_PI; // Angle in radians
-
-            // Calculate the endpoints of the lines
-            int startX = static_cast<int>(width / 2.0);
-            int startY = height;
-            int endX1 = startX + static_cast<int>(radius * cos(angle));
-            int endY1 = startY - static_cast<int>(radius * sin(angle));
-            int endX2 = startX + static_cast<int>(radius * cos(-angle));
-            int endY2 = startY - static_cast<int>(radius * sin(-angle));
-
-            // Draw lines on the frame
-            cv::line(frame, cv::Point(startX, startY), cv::Point(endX1, endY1), cv::Scalar(0, 0, 0), 1);
-            cv::line(frame, cv::Point(startX, startY), cv::Point(endX2, endY2), cv::Scalar(0, 0, 0), 1);
-        }
-    }
-
+			// Set intensity value at current Cartesian coordinates
+			frame.at<cv::Vec3b>(y, cartesianX) = cv::Vec3b(255, 255, 255);
+		 }
+	}
 }
 
+
+    // Add a timestamp to the frame
+    //cv::putText(frame, "Time Step: " + std::to_string(timeStep), cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255), 2);
+}
 
 int main() {
     // Video dimensions
