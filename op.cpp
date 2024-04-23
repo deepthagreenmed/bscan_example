@@ -1,9 +1,17 @@
+#include <opencv2/opencv.hpp>
+#include <X11/Xlib.h>
+#include <GL/glx.h>
+#include <GL/gl.h>
+#include <unistd.h>
+#include <cstdio>
 #include <GL/glut.h>
 #include <cmath>
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 #include <vector>
-#include <chrono>   // For std::chrono
-#include <thread>   // For std::this_thread::sleep_for
+#include <chrono>
+#include <thread>
 
 // Global variables
 int width = 1024;
@@ -15,7 +23,22 @@ double angle_rad;
 int yOffset = 200;
 
 // Video writer object
-//cv::VideoWriter videoWriter;
+cv::VideoWriter videoWriter;
+
+// Global variable
+std::vector<std::vector<cv::Point>> frameBuffer;
+
+// Global variables for timing
+std::chrono::steady_clock::time_point startTime;
+std::chrono::steady_clock::time_point endTime;
+
+void startTimer() {
+    startTime = std::chrono::steady_clock::now();
+}
+
+void stopTimer() {
+    endTime = std::chrono::steady_clock::now();
+}
 
 void initGL() {
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // Set background color to white
@@ -26,71 +49,92 @@ void initGL() {
     glLoadIdentity();
 }
 
-void drawFrame(int frameNumber) {
-    glClear(GL_COLOR_BUFFER_BIT);
-
+void drawFrame(int frameNumber, std::vector<std::pair<int, int>>& pointBuffer) {
     // Calculate angle for this frame
     double frameAngle = angle * static_cast<double>(frameNumber) / 400.0;
     double frameAngle_rad = frameAngle * M_PI / 180.0;
 
-    // Draw points in Cartesian coordinates based on polar coordinates
+    // Clear the buffer
+    pointBuffer.clear();
+
+    // Populate the buffer with points
     for (double i = -frameAngle_rad; i < frameAngle_rad; i += frameAngle_rad / 200) {
         for (int j = 0; j < width; ++j) {
             double x = j * cos(i);
             double y = j * sin(i) + yOffset; // Add yOffset
 
-            if (j == 117 || j == 148 || (j >= 417 && j <= 440)) {
+            // Save points to buffer
+            pointBuffer.push_back(std::make_pair(static_cast<int>(x), static_cast<int>(y)));
+        }
+    }
+}
+
+void drawPoints(const std::vector<std::pair<int, int>>& pointBuffer) {
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // Draw points using the data in the buffer
+    for (const auto& point : pointBuffer) {
+        int x = point.first;
+        int y = point.second;
+
+        if (x >= 0 && x < width && y >= 0 && y < height) {
+            if (x == 117 || x == 148 || (x >= 417 && x <= 440)) {
                 glColor3f(1.0f, 1.0f, 1.0f); // White
             } else {
                 glColor3f(0.0f, 0.0f, 0.0f); // Black
             }
 
             glBegin(GL_POINTS);
-            glVertex2i(static_cast<int>(x), static_cast<int>(y));
+            glVertex2i(x, y);
             glEnd();
         }
     }
 
     glutSwapBuffers();
-    glFlush();
-
-    // Capture the frame and save it as an image
-    /*std::stringstream filename;
-    filename << "frame_" << std::setw(4) << std::setfill('0') << frameNumber << ".png";
-
-    // Read pixels from the framebuffer
-    unsigned char* pixels = new unsigned char[3 * width * height];
-    glReadPixels(0, 0, width, height, GL_BGR, GL_UNSIGNED_BYTE, pixels);
-
-    // Create OpenCV Mat from the rendered frame
-    cv::Mat frame(height, width, CV_8UC3, pixels);
-
-    // Write the frame to the video
-    videoWriter.write(frame);
-
-    delete[] pixels;*/
 }
 
 void captureFrames() {
-    /*// OpenCV VideoWriter parameters
     std::string filename = "output2.avi";
     int codec = cv::VideoWriter::fourcc('M', 'J', 'P', 'G');
-    double fps = 60.0;
+    double desiredFps = 15.0; // Desired frame rate
     cv::Size frameSize(width, height);
 
-    // Initialize VideoWriter
-    videoWriter.open(filename, codec, fps, frameSize);*/
+    videoWriter.open(filename, codec, desiredFps, frameSize);
 
-    // Draw and capture each frame
+    startTimer(); // Start the timer
+
+    // Calculate the target duration for each frame to achieve the desired frame rate
+    std::chrono::microseconds targetFrameDuration(static_cast<long long>(1000000 / desiredFps));
+
+    std::vector<std::pair<int, int>> pointBuffer; // Buffer to store x and y points
+
     for (int i = 0; i < 400; ++i) {
-        drawFrame(i);
+        auto frameStartTime = std::chrono::steady_clock::now(); // Start time of the frame rendering
+
+        drawFrame(i, pointBuffer);
+        drawPoints(pointBuffer);
         glutPostRedisplay(); // Trigger a redraw for the next frame
-        std::this_thread::sleep_for(std::chrono::microseconds(1000000 / 60)); // Adjust this delay according to desired frame rate
+
+        auto frameEndTime = std::chrono::steady_clock::now(); // End time of the frame rendering
+        auto frameElapsedTime = std::chrono::duration_cast<std::chrono::microseconds>(frameEndTime - frameStartTime);
+
+        // Adjust the sleep duration based on frame rendering time to match the desired frame rate
+        std::chrono::microseconds remainingTime = targetFrameDuration - frameElapsedTime;
+        if (remainingTime.count() > 0) {
+            std::this_thread::sleep_for(remainingTime);
+        }
     }
 
-    // Release VideoWriter
-    //videoWriter.release();
+    stopTimer(); // Stop the timer
+
+    // Calculate the elapsed time
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
+    double seconds = duration.count() / 1000000.0; // Convert microseconds to seconds
+    std::cout << "Video duration: " << seconds << " seconds" << std::endl;
+
+    videoWriter.release();
 }
+
 
 int main(int argc, char** argv) {
     angle_rad = angle * M_PI / 180.0;
@@ -99,7 +143,7 @@ int main(int argc, char** argv) {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
     glutInitWindowSize(width, height);
-    glutCreateWindow("Cartesian B-scan Video");
+    glutCreateWindow("OpenGL Cartesian B-scan");
 
     initGL();
 
