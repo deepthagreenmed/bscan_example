@@ -96,15 +96,12 @@ void drawPoints(const std::vector<std::pair<int, int>>& pointBuffer) {
 void captureFrames() {
     std::string filename = "output2.avi";
     int codec = cv::VideoWriter::fourcc('M', 'J', 'P', 'G');
-    double desiredFps = 15.0; // Desired frame rate
+    double desiredFps = 60.0; // Desired frame rate
     cv::Size frameSize(width, height);
 
     videoWriter.open(filename, codec, desiredFps, frameSize);
 
     startTimer(); // Start the timer
-
-    // Calculate the target duration for each frame to achieve the desired frame rate
-    std::chrono::microseconds targetFrameDuration(static_cast<long long>(1000000 / desiredFps));
 
     std::vector<std::pair<int, int>> pointBuffer; // Buffer to store x and y points
 
@@ -118,10 +115,17 @@ void captureFrames() {
         auto frameEndTime = std::chrono::steady_clock::now(); // End time of the frame rendering
         auto frameElapsedTime = std::chrono::duration_cast<std::chrono::microseconds>(frameEndTime - frameStartTime);
 
-        // Adjust the sleep duration based on frame rendering time to match the desired frame rate
-        std::chrono::microseconds remainingTime = targetFrameDuration - frameElapsedTime;
-        if (remainingTime.count() > 0) {
-            std::this_thread::sleep_for(remainingTime);
+        // Calculate the time taken to render this frame
+        double frameTime = frameElapsedTime.count() / 1000000.0; // Convert to seconds
+
+        // Calculate the desired time per frame to achieve the desired frame rate
+        double targetFrameTime = 1.0 / desiredFps;
+
+        // If the frame rendering time is less than the desired time per frame,
+        // sleep for the difference to maintain the desired frame rate
+        if (frameTime < targetFrameTime) {
+            double sleepTime = targetFrameTime - frameTime;
+            std::this_thread::sleep_for(std::chrono::microseconds(static_cast<long long>(sleepTime * 1000000)));
         }
     }
 
