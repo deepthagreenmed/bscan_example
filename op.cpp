@@ -118,7 +118,7 @@ void renderLoop() {
     auto startTime = std::chrono::steady_clock::now();
     double elapsedTime = 0.0;
 
-    while (numFrames < targetFPS) {  // Render for 10 seconds
+    while (numFrames < targetFPS) {  // Render for 1 seconds
         auto currentTime = std::chrono::steady_clock::now();
         std::chrono::duration<double> delta = currentTime - startTime;
         elapsedTime += delta.count();
