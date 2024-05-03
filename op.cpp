@@ -1,158 +1,156 @@
-#include <opencv2/opencv.hpp>
-#include <X11/Xlib.h>
-#include <GL/glx.h>
 #include <GL/gl.h>
-#include <unistd.h>
-#include <cstdio>
-#include <GL/glut.h>
+#include <GL/glx.h>
+#include <X11/Xlib.h>
 #include <cmath>
 #include <iostream>
-#include <sstream>
-#include <iomanip>
-#include <vector>
+#include <string>
 #include <chrono>
 #include <thread>
 
-// Global variables
+Display* dpy;
+Window win;
+GLXContext ctx;
 int width = 1024;
 int height = 400;
-double angle = 22.5; // Angle in degrees
-double angle_rad;
+int numFrames = 0;
 
-// Offset to move the output down
-int yOffset = 200;
+void createWindow() {
+    dpy = XOpenDisplay(NULL);
+    if (!dpy) {
+        fprintf(stderr, "Error: Could not open X display\n");
+        exit(1);
+    }
 
-// Video writer object
-cv::VideoWriter videoWriter;
+    int screen = DefaultScreen(dpy);
+    Window root = RootWindow(dpy, screen);
 
-// Global variable
-std::vector<std::vector<cv::Point>> frameBuffer;
+    static int visual_attribs[] = {
+        GLX_RGBA,
+        GLX_DEPTH_SIZE, 24,
+        GLX_DOUBLEBUFFER,
+        None
+    };
 
-// Global variables for timing
-std::chrono::steady_clock::time_point startTime;
-std::chrono::steady_clock::time_point endTime;
+    XVisualInfo *vi = glXChooseVisual(dpy, screen, visual_attribs);
+    if (!vi) {
+        fprintf(stderr, "Error: No appropriate visual found\n");
+        exit(1);
+    }
 
-void startTimer() {
-    startTime = std::chrono::steady_clock::now();
+    Colormap cmap = XCreateColormap(dpy, root, vi->visual, AllocNone);
+
+    XSetWindowAttributes swa;
+    swa.colormap = cmap;
+    swa.event_mask = ExposureMask | KeyPressMask;
+
+    win = XCreateWindow(dpy, root, 0, 0, width, height, 0, vi->depth, InputOutput, vi->visual, CWColormap | CWEventMask, &swa);
+    if (!win) {
+        fprintf(stderr, "Error: Failed to create window\n");
+        exit(1);
+    }
+
+    ctx = glXCreateContext(dpy, vi, NULL, GL_TRUE);
+    if (!ctx) {
+        fprintf(stderr, "Error: Failed to create OpenGL context\n");
+        exit(1);
+    }
+
+    glXMakeCurrent(dpy, win, ctx);
+
+    XMapWindow(dpy, win);
 }
 
-void stopTimer() {
-    endTime = std::chrono::steady_clock::now();
+void destroyWindow() {
+    glXMakeCurrent(dpy, None, nullptr);
+    glXDestroyContext(dpy, ctx);
+    XDestroyWindow(dpy, win);
+    XCloseDisplay(dpy);
 }
 
-void initGL() {
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // Set background color to white
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0, width, 0, height, -1, 1); // Set up orthographic projection
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-}
+void drawFrame() {
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // Set clear color to white
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
+    double angle = 22.5; // Angle in degrees
+    double angle_rad = angle * 3.14159 / 180.0;
+    double yOffset = 200;
 
-void drawFrame(int frameNumber, std::vector<std::pair<int, int>>& pointBuffer) {
-    // Calculate angle for this frame
-    double frameAngle = angle * static_cast<double>(frameNumber) / 400.0;
-    double frameAngle_rad = frameAngle * M_PI / 180.0;
-
-    // Clear the buffer
-    pointBuffer.clear();
-
-    // Populate the buffer with points
-    for (double i = -frameAngle_rad; i < frameAngle_rad; i += frameAngle_rad / 200) {
+    // Draw points in Cartesian coordinates
+    glPointSize(1.0f);
+    glBegin(GL_POINTS);
+    for (double i = -angle_rad; i < angle_rad; i += angle_rad / 200) {
         for (int j = 0; j < width; ++j) {
             double x = j * cos(i);
             double y = j * sin(i) + yOffset; // Add yOffset
 
-            // Save points to buffer
-            pointBuffer.push_back(std::make_pair(static_cast<int>(x), static_cast<int>(y)));
-        }
-    }
-}
-
-void drawPoints(const std::vector<std::pair<int, int>>& pointBuffer) {
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    // Draw points using the data in the buffer
-    for (const auto& point : pointBuffer) {
-        int x = point.first;
-        int y = point.second;
-
-        if (x >= 0 && x < width && y >= 0 && y < height) {
-            if (x == 117 || x == 148 || (x >= 417 && x <= 440)) {
-                glColor3f(1.0f, 1.0f, 1.0f); // White
+            // Set white color for specific points
+            if (j == 117 || j == 148 || (j >= 417 && j <= 440)) {
+                glColor3f(1.0f, 1.0f, 1.0f); // white
             } else {
-                glColor3f(0.0f, 0.0f, 0.0f); // Black
+                glColor3f(0.0f, 0.0f, 0.0f); // black
             }
 
-            glBegin(GL_POINTS);
-            glVertex2i(x, y);
-            glEnd();
+            // Convert to OpenGL coordinates
+            double gl_x = 2.0 * x / width - 1.0;
+            double gl_y = 2.0 * y / height - 1.0;
+
+            glVertex2d(gl_x, gl_y);
         }
     }
+    glEnd();
 
-    glutSwapBuffers();
-}
-
-void captureFrames() {
-    std::string filename = "output2.avi";
-    int codec = cv::VideoWriter::fourcc('M', 'J', 'P', 'G');
-    double desiredFps = 60.0; // Desired frame rate
-    cv::Size frameSize(width, height);
-
-    videoWriter.open(filename, codec, desiredFps, frameSize);
-
-    startTimer(); // Start the timer
-
-    std::vector<std::pair<int, int>> pointBuffer; // Buffer to store x and y points
-
-    for (int i = 0; i < 400; ++i) {
-        auto frameStartTime = std::chrono::steady_clock::now(); // Start time of the frame rendering
-
-        drawFrame(i, pointBuffer);
-        drawPoints(pointBuffer);
-        glutPostRedisplay(); // Trigger a redraw for the next frame
-
-        auto frameEndTime = std::chrono::steady_clock::now(); // End time of the frame rendering
-        auto frameElapsedTime = std::chrono::duration_cast<std::chrono::microseconds>(frameEndTime - frameStartTime);
-
-        // Calculate the time taken to render this frame
-        double frameTime = frameElapsedTime.count() / 1000000.0; // Convert to seconds
-
-        // Calculate the desired time per frame to achieve the desired frame rate
-        double targetFrameTime = 1.0 / desiredFps;
-
-        // If the frame rendering time is less than the desired time per frame,
-        // sleep for the difference to maintain the desired frame rate
-        if (frameTime < targetFrameTime) {
-            double sleepTime = targetFrameTime - frameTime;
-            std::this_thread::sleep_for(std::chrono::microseconds(static_cast<long long>(sleepTime * 1000000)));
-        }
+    // Draw frame number
+    glColor3f(1.0f, 1.0f, 1.0f); // Set text color to white
+    glRasterPos2f(-1.0f, -0.9f); // Place the text in the lower-left corner
+    std::string frameStr = "Frame number: " + std::to_string(numFrames);
+    for (char c : frameStr) {
+        //glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, c);
     }
 
-    stopTimer(); // Stop the timer
-
-    // Calculate the elapsed time
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
-    double seconds = duration.count() / 1000000.0; // Convert microseconds to seconds
-    std::cout << "Video duration: " << seconds << " seconds" << std::endl;
-
-    videoWriter.release();
+    glXSwapBuffers(dpy, win);
 }
 
 
-int main(int argc, char** argv) {
-    angle_rad = angle * M_PI / 180.0;
+void renderLoop() {
+    constexpr std::chrono::milliseconds targetFrameDuration(66); // 1000ms / 60FPS ≈ 16.67ms per frame
+    std::chrono::steady_clock::time_point frameStartTime;
+    std::chrono::steady_clock::time_point frameEndTime;
 
-    // Initialize OpenGL and GLUT
-    glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-    glutInitWindowSize(width, height);
-    glutCreateWindow("OpenGL Cartesian B-scan");
+    while (true) {
+        frameStartTime = std::chrono::steady_clock::now();
 
-    initGL();
+        XEvent event;
+        while (XPending(dpy) > 0) {
+            XNextEvent(dpy, &event);
+            switch (event.type) {
+                case Expose:
+                    drawFrame();
+                    break;
+                case KeyPress:
+                    destroyWindow();
+                    return;
+            }
+        }
 
-    // Capture frames and save as video
-    captureFrames();
+        drawFrame(); // Draw frame outside event handling
 
+        frameEndTime = std::chrono::steady_clock::now();
+        auto frameElapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(frameEndTime - frameStartTime);
+
+        auto sleepTime = targetFrameDuration - frameElapsedTime;
+        if (sleepTime > std::chrono::milliseconds::zero()) {
+            std::this_thread::sleep_for(sleepTime);
+        } else {
+            // If rendering took longer than expected, print a warning
+            std::cerr << "Warning: Rendering took longer than expected." << std::endl;
+        }
+    }
+}
+
+
+
+int main() {
+    createWindow();
+    renderLoop();
     return 0;
 }
