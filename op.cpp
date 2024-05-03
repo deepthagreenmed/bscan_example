@@ -14,6 +14,9 @@ int width = 1024;
 int height = 400;
 int numFrames = 0;
 
+const int targetFPS = 60;
+const double targetFrameTime = 1.0 / targetFPS;
+
 void createWindow() {
     dpy = XOpenDisplay(NULL);
     if (!dpy) {
@@ -112,40 +115,27 @@ void drawFrame() {
 
 
 void renderLoop() {
-    constexpr std::chrono::milliseconds targetFrameDuration(66); // 1000ms / 60FPS ≈ 16.67ms per frame
-    std::chrono::steady_clock::time_point frameStartTime;
-    std::chrono::steady_clock::time_point frameEndTime;
+    auto startTime = std::chrono::steady_clock::now();
+    double elapsedTime = 0.0;
 
-    while (true) {
-        frameStartTime = std::chrono::steady_clock::now();
+    while (numFrames < targetFPS) {  // Render for 10 seconds
+        auto currentTime = std::chrono::steady_clock::now();
+        std::chrono::duration<double> delta = currentTime - startTime;
+        elapsedTime += delta.count();
+        startTime = currentTime;
 
-        XEvent event;
-        while (XPending(dpy) > 0) {
-            XNextEvent(dpy, &event);
-            switch (event.type) {
-                case Expose:
-                    drawFrame();
-                    break;
-                case KeyPress:
-                    destroyWindow();
-                    return;
-            }
+        if (elapsedTime >= targetFrameTime) {
+            drawFrame();
+            elapsedTime -= targetFrameTime;
+            numFrames++;
         }
 
-        drawFrame(); // Draw frame outside event handling
-
-        frameEndTime = std::chrono::steady_clock::now();
-        auto frameElapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(frameEndTime - frameStartTime);
-
-        auto sleepTime = targetFrameDuration - frameElapsedTime;
-        if (sleepTime > std::chrono::milliseconds::zero()) {
-            std::this_thread::sleep_for(sleepTime);
-        } else {
-            // If rendering took longer than expected, print a warning
-            std::cerr << "Warning: Rendering took longer than expected." << std::endl;
-        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+
+    destroyWindow();
 }
+
 
 
 
